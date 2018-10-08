@@ -13,7 +13,7 @@ dependencies {
     implementation project(':resourcesHttp')
     implementation libraries.slf4j_api.coordinates
     implementation libraries.guava.coordinates
-    implementation libraries.awsS3_core.coordinates, libraries.awsS3_s3.coordinates, libraries.awsS3_kms.coordinates
+    implementation libraries.awsS3_core.coordinates, libraries.awsS3_s3.coordinates, libraries.awsS3_kms.coordinates, libraries.jaxb.coordinates
     implementation libraries.jackson_core.coordinates, libraries.jackson_annotations.coordinates, libraries.jackson_databind.coordinates
     implementation libraries.commons_httpclient.coordinates, libraries.joda.coordinates
     implementation libraries.commons_lang.coordinates
@@ -29,10 +29,10 @@ gradlebuildJava {
     moduleType = ModuleType.CORE
 }
 
-tasks.withType(Test).configureEach {
+tasks.withType(Test) {
     def javaVersion = rootProject.availableJavaInstallations.javaInstallationForTest.javaVersion
-    if (javaVersion.java9Compatible) {
-        jvmArgs '--add-modules', 'java.xml.bind'
+    if (javaVersion < JavaVersion.VERSION_1_9) {
+        classpath = classpath.filter { file -> !file.name.startsWith("jaxb-impl-") }
     }
 }
 
