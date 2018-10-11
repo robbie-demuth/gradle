@@ -71,7 +71,7 @@ task thing(type: SomeTask) {
         skipped(":thing")
     }
 
-    def "can finalize property value"() {
+    def "can finalize the value of a property"() {
         given:
         buildFile << """
 Integer counter = 0
@@ -94,6 +94,56 @@ property.set(12)
 
         then:
         failure.assertHasCause("The value for this property is final and cannot be changed any further.")
+    }
+
+    def "task property is implicitly finalized and changes ignored when task starts execution"() {
+        given:
+        buildFile << """
+class SomeTask extends DefaultTask {
+    @Input
+    final Property<String> prop = project.objects.property(String)
+    
+    @OutputFile
+    final Property<RegularFile> outputFile = project.objects.fileProperty()
+    
+    @TaskAction
+    void go() {
+        prop.set("ignored")
+        outputFile.get().asFile.text = prop.get()
+    }
+}
+
+task thing(type: SomeTask) {
+    prop = "value 1"
+    outputFile = layout.buildDirectory.file("out.txt")
+}
+
+afterEvaluate {
+    thing.prop = "value 2"
+}
+
+task before {
+    doLast {
+        thing.prop = providers.provider { "final value" }
+    }
+}
+thing.dependsOn before
+
+task after {
+    dependsOn thing
+    doLast {
+        thing.prop = "ignore"
+        assert thing.prop.get() == "final value"
+    }
+}
+"""
+
+        when:
+        executer.expectDeprecationWarning()
+        run("after")
+
+        then:
+        file("build/out.txt").text == "final value"
     }
 
     def "can set property value from DSL using a value or a provider"() {

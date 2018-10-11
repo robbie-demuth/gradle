@@ -315,11 +315,14 @@ abstract class PropertySpec<T> extends ProviderSpec<T> {
         def property = property()
 
         when:
-        property.finalizeValue()
+        property."$method"()
 
         then:
         !property.present
         property.getOrNull() == null
+
+        where:
+        method << ["finalizeValue", "finalizeValueAndWarnAboutChanges"]
     }
 
     def "can finalize value when value set"() {
@@ -327,11 +330,14 @@ abstract class PropertySpec<T> extends ProviderSpec<T> {
 
         when:
         property.set(someValue())
-        property.finalizeValue()
+        property."$method"()
 
         then:
         property.present
         property.getOrNull() == someValue()
+
+        where:
+        method << ["finalizeValue", "finalizeValueAndWarnAboutChanges"]
     }
 
     def "replaces provider with fixed value when value finalized"() {
@@ -341,7 +347,7 @@ abstract class PropertySpec<T> extends ProviderSpec<T> {
 
         when:
         property.set(provider)
-        property.finalizeValue()
+        property."$method"()
 
         then:
         1 * function.call() >> someValue()
@@ -355,6 +361,9 @@ abstract class PropertySpec<T> extends ProviderSpec<T> {
         present
         result == someValue()
         0 * _
+
+        where:
+        method << ["finalizeValue", "finalizeValueAndWarnAboutChanges"]
     }
 
     def "replaces provider with fixed missing value when value finalized"() {
@@ -364,7 +373,7 @@ abstract class PropertySpec<T> extends ProviderSpec<T> {
 
         when:
         property.set(provider)
-        property.finalizeValue()
+        property."$method"()
 
         then:
         1 * function.call() >> null
@@ -378,6 +387,9 @@ abstract class PropertySpec<T> extends ProviderSpec<T> {
         !present
         result == null
         0 * _
+
+        where:
+        method << ["finalizeValue", "finalizeValueAndWarnAboutChanges"]
     }
 
     def "can finalize value when already finalized"() {
@@ -396,6 +408,8 @@ abstract class PropertySpec<T> extends ProviderSpec<T> {
 
         when:
         property.finalizeValue()
+        property.finalizeValueAndWarnAboutChanges()
+        property.finalizeValueAndWarnAboutChanges()
 
         then:
         0 * _
@@ -409,6 +423,35 @@ abstract class PropertySpec<T> extends ProviderSpec<T> {
 
         when:
         property.set(someValue())
+
+        then:
+        def e = thrown(IllegalStateException)
+        e.message == 'The value for this property is final and cannot be changed any further.'
+    }
+
+    def "ignores set value after value finalized leniently"() {
+        given:
+        def property = property()
+        property.set(someValue())
+        property.finalizeValueAndWarnAboutChanges()
+
+        when:
+        property.set(someOtherValue())
+
+        then:
+        property.get() == someValue()
+    }
+
+    def "cannot set value after value finalized after value finalized leniently"() {
+        given:
+        def property = property()
+        property.set(someValue())
+        property.finalizeValueAndWarnAboutChanges()
+        property.set(someOtherValue())
+        property.finalizeValue()
+
+        when:
+        property.set(someOtherValue())
 
         then:
         def e = thrown(IllegalStateException)
@@ -429,6 +472,19 @@ abstract class PropertySpec<T> extends ProviderSpec<T> {
         e.message == 'The value for this property is final and cannot be changed any further.'
     }
 
+    def "ignores set value using provider after value finalized leniently"() {
+        given:
+        def property = property()
+        property.set(someValue())
+        property.finalizeValueAndWarnAboutChanges()
+
+        when:
+        property.set(Mock(ProviderInternal))
+
+        then:
+        property.get() == someValue()
+    }
+
     def "cannot set value using any type after value finalized"() {
         given:
         def property = property()
@@ -441,6 +497,32 @@ abstract class PropertySpec<T> extends ProviderSpec<T> {
         then:
         def e = thrown(IllegalStateException)
         e.message == 'The value for this property is final and cannot be changed any further.'
+
+        when:
+        property.setFromAnyValue(Stub(ProviderInternal))
+
+        then:
+        def e2 = thrown(IllegalStateException)
+        e2.message == 'The value for this property is final and cannot be changed any further.'
+    }
+
+    def "ignores set value using any type after value finalized"() {
+        given:
+        def property = property()
+        property.set(someValue())
+        property.finalizeValueAndWarnAboutChanges()
+
+        when:
+        property.setFromAnyValue(someOtherValue())
+
+        then:
+        property.get() == someValue()
+
+        when:
+        property.setFromAnyValue(Stub(ProviderInternal))
+
+        then:
+        property.get() == someValue()
     }
 
     static class Thing { }
