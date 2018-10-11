@@ -29,13 +29,6 @@ gradlebuildJava {
     moduleType = ModuleType.CORE
 }
 
-tasks.withType(Test) {
-    def javaVersion = rootProject.availableJavaInstallations.javaInstallationForTest.javaVersion
-    if (javaVersion < JavaVersion.VERSION_1_9) {
-        classpath = classpath.filter { file -> !file.name.startsWith("jaxb-impl-") }
-    }
-}
-
 import org.gradle.gradlebuild.testing.integrationtests.cleanup.WhenNotEmpty
 testFilesCleanup {
     policy = WhenNotEmpty.REPORT
